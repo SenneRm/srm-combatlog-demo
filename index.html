@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>SRM CombatLog - Live demo</title>
+<style>
+:root {
+    --bg: #14171d;
+    --bg-2: #1a1f28;
+    --bg-3: #232a36;
+    --border: #2a2f3a;
+    --text: #e8ebf0;
+    --muted: #8b93a3;
+    --accent: #3b82f6;
+    --normal: #2ecc71;
+    --heavy: #f39c12;
+    --fatal: #e74c3c;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 100%; height: 100%; background: transparent; font-family: "Segoe UI", Arial, sans-serif; color: var(--text); overflow: hidden; }
+button { font-family: inherit; }
+.hidden { display: none !important; }
+
+#app { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, .45); }
+.panel { width: 940px; max-width: 96vw; height: 640px; max-height: 94vh; display: flex; flex-direction: column;
+    background: var(--bg); border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 20px 60px rgba(0, 0, 0, .6); }
+
+header { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--border); }
+h1 { font-size: 18px; letter-spacing: .5px; }
+#sub { font-size: 12px; color: var(--muted); }
+#close { background: #222834; border: 0; color: #c6ccd8; width: 32px; height: 32px; border-radius: 8px; cursor: pointer; font-size: 14px; }
+#close:hover { background: var(--fatal); color: #fff; }
+
+.tabs { display: flex; gap: 6px; padding: 12px 20px 0; }
+.tab { background: transparent; border: 0; border-bottom: 2px solid transparent; color: var(--muted); padding: 8px 16px; border-radius: 8px 8px 0 0; cursor: pointer; font-size: 13px; }
+.tab.active { color: #fff; border-bottom-color: var(--accent); }
+
+.content { flex: 1; display: flex; gap: 20px; padding: 16px 20px 20px; min-height: 0; }
+.body-wrap { width: 270px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+#body { height: 100%; max-height: 480px; width: auto; }
+.shape * { fill: #1f2530; stroke: #3a4252; stroke-width: 1.5; }
+
+.legend { display: flex; flex-direction: column; gap: 2px; align-self: stretch; padding-left: 20px; }
+.legend button { display: flex; align-items: center; gap: 8px; background: transparent; border: 0; color: #aab1c0; font-size: 12px; padding: 3px 6px; border-radius: 6px; cursor: pointer; text-align: left; }
+.legend button:hover { background: var(--bg-3); }
+.legend button.off { opacity: .35; text-decoration: line-through; }
+.dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+.dot.normal { background: var(--normal); }
+.dot.heavy { background: var(--heavy); }
+.dot.fatal { background: var(--fatal); }
+
+#dots circle { stroke: #0b0d11; stroke-width: 1.5; cursor: pointer; transition: r .12s; }
+#dots circle.normal { fill: var(--normal); }
+#dots circle.heavy { fill: var(--heavy); }
+#dots circle.fatal { fill: var(--fatal); animation: pulse 1.3s infinite; }
+#dots circle.hl { r: 8; stroke: #fff; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
+
+.side { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.stats { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+.stat { background: #1b2029; border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px; min-width: 90px; }
+.stat b { display: block; font-size: 18px; }
+.stat span { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+
+#list { flex: 1; overflow-y: auto; padding-right: 6px; }
+#list::-webkit-scrollbar { width: 6px; }
+#list::-webkit-scrollbar-thumb { background: #2f3644; border-radius: 3px; }
+
+.row { display: grid; grid-template-columns: 62px 1fr auto; gap: 2px 12px; align-items: center; padding: 8px 12px; margin-bottom: 6px;
+    background: var(--bg-2); border-left: 4px solid var(--normal); border-radius: 8px; font-size: 13px; }
+.row.heavy { border-left-color: var(--heavy); }
+.row.fatal { border-left-color: var(--fatal); background: #251a1d; }
+.row:hover, .row.hl { background: var(--bg-3); }
+.row .time { color: var(--muted); font-size: 12px; grid-row: span 2; }
+.row .main { font-weight: 600; }
+.row .meta, .row .dist { color: var(--muted); font-size: 12px; }
+.row .dmg { font-weight: 700; text-align: right; }
+.row .dist { text-align: right; }
+.empty { color: var(--muted); text-align: center; margin-top: 60px; font-size: 14px; }
+
+#tip { position: fixed; pointer-events: none; background: #0b0d11; border: 1px solid #333b4a; border-radius: 8px; padding: 8px 10px; font-size: 12px; line-height: 1.5; z-index: 10; }
+#tip b { color: #fff; }
+
+
+/* ===== preview-only overrides ===== */
+html, body { background:#141517; }
+#app { padding-bottom:56px; background:rgba(0,0,0,.25); }
+.panel { max-height:calc(100vh - 80px); }
+#reopen { position:fixed; inset:0; display:none; align-items:center; justify-content:center; padding-bottom:56px; }
+#app.hidden ~ #reopen { display:flex; }
+#pv-bar { position:fixed; left:0; right:0; bottom:0; height:48px; display:flex; align-items:center; justify-content:center; gap:10px; z-index:20; background:#101215; border-top:1px solid var(--border); }
+#pv-bar select, .pv-btn { height:30px; padding:0 12px; background:var(--bg-3); color:#fff; border:1px solid var(--border); border-radius:6px; font-size:13px; font-family:inherit; cursor:pointer; }
+#pv-bar select:focus, .pv-btn:hover { border-color:var(--accent); outline:none; }
+.pv-btn.primary { background:var(--accent); border-color:var(--accent); height:36px; padding:0 20px; font-weight:600; }
+.pv-note { font-size:12px; color:var(--muted); }
+
+</style>
+</head>
+<body>
+<div id="app" class="hidden">
+    <div class="panel">
+        <header>
+            <div>
+                <h1 data-i18n="ui_title"></h1>
+                <span id="sub"></span>
+            </div>
+            <button id="close" aria-label="Close">✕</button>
+        </header>
+
+        <div class="tabs">
+            <button class="tab active" data-tab="received" data-i18n="ui_tab_received"></button>
+            <button class="tab" data-tab="dealt" data-i18n="ui_tab_dealt"></button>
+        </div>
+
+        <div class="content">
+            <div class="body-wrap">
+                <svg id="body" viewBox="0 0 200 440" xmlns="http://www.w3.org/2000/svg">
+                    <g class="shape">
+                        <circle cx="100" cy="38" r="22"/>
+                        <rect x="92" y="58" width="16" height="16" rx="4"/>
+                        <path d="M62 80 Q100 70 138 80 L134 150 L130 235 Q100 245 70 235 L66 150 Z"/>
+                        <rect x="40" y="82" width="20" height="62" rx="10"/>
+                        <rect x="34" y="146" width="18" height="60" rx="9"/>
+                        <ellipse cx="42" cy="220" rx="9" ry="14"/>
+                        <rect x="140" y="82" width="20" height="62" rx="10"/>
+                        <rect x="148" y="146" width="18" height="60" rx="9"/>
+                        <ellipse cx="158" cy="220" rx="9" ry="14"/>
+                        <rect x="68" y="238" width="30" height="92" rx="14"/>
+                        <rect x="70" y="332" width="24" height="72" rx="11"/>
+                        <ellipse cx="80" cy="420" rx="16" ry="8"/>
+                        <rect x="102" y="238" width="30" height="92" rx="14"/>
+                        <rect x="106" y="332" width="24" height="72" rx="11"/>
+                        <ellipse cx="120" cy="420" rx="16" ry="8"/>
+                    </g>
+                    <g id="dots"></g>
+                </svg>
+                <div class="legend">
+                    <button data-sev="normal"><i class="dot normal"></i><span data-i18n="ui_legend_hit"></span></button>
+                    <button data-sev="heavy"><i class="dot heavy"></i><span id="legend-heavy"></span></button>
+                    <button data-sev="fatal"><i class="dot fatal"></i><span data-i18n="ui_legend_fatal"></span></button>
+                </div>
+            </div>
+
+            <div class="side">
+                <div class="stats" id="stats"></div>
+                <div id="list"></div>
+            </div>
+        </div>
+    </div>
+    <div id="tip" class="hidden"></div>
+</div>
+
+<div id="reopen"><button id="pv-reopen" class="pv-btn primary" type="button">Open combat log</button></div>
+<div id="pv-bar">
+    <select id="pv-lang" aria-label="Language"><option value="en">English</option><option value="nl">Nederlands</option></select>
+    <button id="pv-new" class="pv-btn" type="button">New sample data</button>
+    <span class="pv-note">Hover the dots and rows, click the legend to filter</span>
+</div>
+
+<script>
+(() => {
+    'use strict';
+
+    const RES = typeof GetParentResourceName === 'function' ? GetParentResourceName() : 'srm-combatlog';
+    const SVG_NS = 'http://www.w3.org/2000/svg';
+
+    // Dot positions per body zone (SVG viewBox 200x440). R = right side of the character.
+    const ZONES = {
+        head: [100, 38], neck: [100, 66],
+        clavR: [78, 86], clavL: [122, 86],
+        spine3: [100, 102], spine2: [100, 124], spine1: [100, 148],
+        spine0: [100, 178], spineRoot: [100, 204], pelvis: [100, 228],
+        upperArmR: [50, 113], foreArmR: [43, 176], handR: [42, 220],
+        upperArmL: [150, 113], foreArmL: [157, 176], handL: [158, 220],
+        thighR: [83, 285], calfR: [82, 368], footR: [80, 420],
+        thighL: [117, 285], calfL: [118, 368], footL: [120, 420]
+    };
+
+    const state = { logs: [], targetId: 0, tab: 'received', hidden: new Set(), t: {}, heavy: 35 };
+
+    const $ = id => document.getElementById(id);
+    const tr = key => state.t[key] || key;
+    const fmt = (str, ...args) => args.reduce((acc, v) => acc.replace('%s', v), str || '');
+    const party = id => (id === undefined || id === null) ? tr('ui_environment') : fmt(tr('ui_player'), id);
+    const zoneLabel = l => l.zone ? tr('zone_' + l.zone) : fmt(tr('ui_unknown_zone'), l.boneId === undefined ? '?' : l.boneId);
+    const sevLabel = sev => tr({ normal: 'ui_sev_normal', heavy: 'ui_sev_heavy', fatal: 'ui_sev_fatal' }[sev]);
+
+    function applyStatic() {
+        document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = tr(el.dataset.i18n); });
+        $('legend-heavy').textContent = fmt(tr('ui_legend_heavy'), state.heavy);
+        $('sub').textContent = fmt(tr('ui_subtitle'), state.targetId);
+        $('close').title = tr('ui_close');
+    }
+
+    function open(data) {
+        state.logs = Array.isArray(data.logs) ? data.logs : [];
+        state.targetId = Number(data.targetId);
+        state.t = data.locale || {};
+        state.heavy = data.heavyDamage;
+        state.tab = 'received';
+        state.hidden.clear();
+        document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === state.tab));
+        document.querySelectorAll('.legend button').forEach(b => b.classList.remove('off'));
+        applyStatic();
+        $('app').classList.remove('hidden');
+        render();
+    }
+
+    function close() {
+        $('app').classList.add('hidden');
+        $('tip').classList.add('hidden');
+        fetch(`https://${RES}/close`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: '{}'
+        }).catch(() => {});   // fails silently when previewed in a normal browser
+    }
+
+    function render() {
+        const logs = state.logs
+            .filter(l => state.tab === 'received' ? Number(l.victimId) === state.targetId : Number(l.attackerId) === state.targetId)
+            .filter(l => !state.hidden.has(l.severity));
+
+        const dots = $('dots'), list = $('list');
+        dots.replaceChildren();
+        list.replaceChildren();
+
+        let totalDamage = 0, heavy = 0, fatal = 0;
+        const perZone = {};
+
+        logs.forEach(l => {
+            totalDamage += l.damage || 0;
+            if (l.severity === 'heavy') heavy++;
+            if (l.severity === 'fatal') fatal++;
+
+            // Dot (several hits on one zone fan out around it)
+            let circle = null;
+            const pos = ZONES[l.zone];
+            if (pos) {
+                const n = perZone[l.zone] = (perZone[l.zone] || 0) + 1;
+                const idx = n - 1;
+                const angle = idx * 2.4;
+                const radius = idx === 0 ? 0 : Math.min(4 + 3 * Math.sqrt(idx), 13);
+                circle = document.createElementNS(SVG_NS, 'circle');
+                circle.setAttribute('cx', pos[0] + Math.cos(angle) * radius);
+                circle.setAttribute('cy', pos[1] + Math.sin(angle) * radius);
+                circle.setAttribute('r', 5);
+                circle.setAttribute('class', l.severity);
+                circle.addEventListener('mousemove', e => showTip(e, l));
+                circle.addEventListener('mouseleave', () => $('tip').classList.add('hidden'));
+                dots.appendChild(circle);
+            }
+
+            // Row
+            const other = state.tab === 'received'
+                ? (Number(l.attackerId) === state.targetId ? tr('ui_self') : party(l.attackerId))
+                : party(l.victimId);
+
+            const row = document.createElement('div');
+            row.className = 'row ' + l.severity;
+            row.innerHTML = '<div class="time"></div><div class="main"></div><div class="dmg"></div><div class="meta"></div><div class="dist"></div>';
+            row.querySelector('.time').textContent = String(l.time || '').slice(11, 19);
+            row.querySelector('.main').textContent = `${other} · ${l.weapon || '-'}`;
+            row.querySelector('.dmg').textContent = (l.severity === 'fatal' ? '☠ ' : '') + '-' + (l.damage || 0);
+            row.querySelector('.meta').textContent = zoneLabel(l) + (l.armorLoss > 0 ? ` · ${l.armorLoss} ${tr('ui_armor')}` : '');
+            row.querySelector('.dist').textContent = l.distance !== undefined ? l.distance + ' m' : '';
+            row.addEventListener('mouseenter', () => { row.classList.add('hl'); if (circle) circle.classList.add('hl'); });
+            row.addEventListener('mouseleave', () => { row.classList.remove('hl'); if (circle) circle.classList.remove('hl'); });
+            list.appendChild(row);
+        });
+
+        if (!logs.length) {
+            const empty = document.createElement('div');
+            empty.className = 'empty';
+            empty.textContent = tr('ui_empty');
+            list.appendChild(empty);
+        }
+
+        const stats = $('stats');
+        stats.replaceChildren();
+        [
+            [tr('ui_stat_hits'), logs.length],
+            [tr('ui_stat_damage'), totalDamage],
+            [fmt(tr('ui_stat_heavy'), state.heavy), heavy],
+            [tr('ui_stat_fatal'), fatal]
+        ].forEach(([label, value]) => {
+            const box = document.createElement('div');
+            box.className = 'stat';
+            box.innerHTML = '<b></b><span></span>';
+            box.querySelector('b').textContent = value;
+            box.querySelector('span').textContent = label;
+            stats.appendChild(box);
+        });
+    }
+
+    function showTip(e, l) {
+        const tip = $('tip');
+        tip.innerHTML = '<b></b><br><span></span><br><span></span>';
+        const [title, a, b] = tip.querySelectorAll('b, span');
+        title.textContent = `${zoneLabel(l)} · ${sevLabel(l.severity)}`;
+        a.textContent = `${l.weapon || '-'} · -${l.damage || 0}` + (l.armorLoss > 0 ? ` (${l.armorLoss} ${tr('ui_armor')})` : '');
+        b.textContent = `${l.oldHealth} → ${l.newHealth}` + (l.distance !== undefined ? ` · ${l.distance} m` : '');
+        tip.classList.remove('hidden');
+        tip.style.left = (e.clientX + 14) + 'px';
+        tip.style.top = (e.clientY + 14) + 'px';
+    }
+
+    window.addEventListener('message', e => {
+        if (e.data && e.data.action === 'open') open(e.data);
+    });
+
+    document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => {
+        state.tab = t.dataset.tab;
+        document.querySelectorAll('.tab').forEach(x => x.classList.toggle('active', x === t));
+        render();
+    }));
+
+    document.querySelectorAll('.legend button').forEach(b => b.addEventListener('click', () => {
+        const sev = b.dataset.sev;
+        if (state.hidden.has(sev)) state.hidden.delete(sev); else state.hidden.add(sev);
+        b.classList.toggle('off', state.hidden.has(sev));
+        render();
+    }));
+
+    $('close').addEventListener('click', close);
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+})();
+
+</script>
+<script>
+/* ===== PREVIEW HARNESS (only for this demo page; not part of the real resource) ===== */
+(() => {
+    'use strict';
+    const TARGET = 12, HEAVY = 35;
+
+    // The real NUI posts to https://<resource>/close. In a browser that does not exist, so swallow it.
+    const realFetch = window.fetch ? window.fetch.bind(window) : null;
+    window.fetch = (url, opts) => (typeof url === 'string' && url.indexOf('https://srm-combatlog/') === 0)
+        ? Promise.resolve({ ok: true, json: () => Promise.resolve({}) })
+        : (realFetch ? realFetch(url, opts) : Promise.reject());
+
+    const ZONE_NAMES = {
+        en: { head:'Head', neck:'Neck', clavR:'Right clavicle', clavL:'Left clavicle', spine3:'Upper spine', spine2:'Mid-upper spine', spine1:'Mid spine', spine0:'Lower spine', spineRoot:'Spine base', pelvis:'Pelvis', upperArmR:'Right upper arm', foreArmR:'Right forearm', handR:'Right hand', upperArmL:'Left upper arm', foreArmL:'Left forearm', handL:'Left hand', thighR:'Right thigh', calfR:'Right calf', footR:'Right foot', thighL:'Left thigh', calfL:'Left calf', footL:'Left foot' },
+        nl: { head:'Hoofd', neck:'Nek', clavR:'Rechter sleutelbeen', clavL:'Linker sleutelbeen', spine3:'Bovenste wervelkolom', spine2:'Boven-midden wervelkolom', spine1:'Midden wervelkolom', spine0:'Onderste wervelkolom', spineRoot:'Basis wervelkolom', pelvis:'Bekken', upperArmR:'Rechter bovenarm', foreArmR:'Rechter onderarm', handR:'Rechter hand', upperArmL:'Linker bovenarm', foreArmL:'Linker onderarm', handL:'Linker hand', thighR:'Rechter bovenbeen', calfR:'Rechter kuit', footR:'Rechter voet', thighL:'Linker bovenbeen', calfL:'Linker kuit', footL:'Linker voet' }
+    };
+
+    const UI = {
+        en: {
+            ui_title:'Combat log', ui_subtitle:'Combat log for player #%s', ui_close:'Close',
+            ui_tab_received:'Damage received', ui_tab_dealt:'Damage dealt',
+            ui_legend_hit:'Hit', ui_legend_heavy:'Heavy hit (%s+ damage)', ui_legend_fatal:'Fatal hit',
+            ui_environment:'Environment', ui_player:'Player #%s', ui_self:'Self',
+            ui_unknown_zone:'Unknown zone (bone %s)', ui_armor:'armor', ui_empty:'No hits recorded.',
+            ui_sev_normal:'Hit', ui_sev_heavy:'Heavy hit', ui_sev_fatal:'Fatal',
+            ui_stat_hits:'Hits', ui_stat_damage:'Total damage', ui_stat_heavy:'Heavy (%s+)', ui_stat_fatal:'Fatal'
+        },
+        nl: {
+            ui_title:'Gevechtslog', ui_subtitle:'Gevechtslog voor speler #%s', ui_close:'Sluiten',
+            ui_tab_received:'Ontvangen schade', ui_tab_dealt:'Toegebrachte schade',
+            ui_legend_hit:'Treffer', ui_legend_heavy:'Zware treffer (%s+ schade)', ui_legend_fatal:'Dodelijke treffer',
+            ui_environment:'Omgeving', ui_player:'Speler #%s', ui_self:'Zelf',
+            ui_unknown_zone:'Onbekende zone (bot %s)', ui_armor:'armor', ui_empty:'Geen treffers geregistreerd.',
+            ui_sev_normal:'Treffer', ui_sev_heavy:'Zware treffer', ui_sev_fatal:'Dodelijk',
+            ui_stat_hits:'Treffers', ui_stat_damage:'Totale schade', ui_stat_heavy:'Zwaar (%s+)', ui_stat_fatal:'Dodelijk'
+        }
+    };
+
+    const locale = lang => {
+        const o = Object.assign({}, UI[lang]);
+        Object.keys(ZONE_NAMES[lang]).forEach(k => { o['zone_' + k] = ZONE_NAMES[lang][k]; });
+        return o;
+    };
+
+    const rnd = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
+    const pick = a => a[rnd(0, a.length - 1)];
+    const ZONES = Object.keys(ZONE_NAMES.en);
+    const WEAPONS = ['Pistol', 'Combat Pistol', 'Carbine Rifle', 'Pump Shotgun', 'SMG', 'Baseball Bat', 'Knife', 'Heavy Sniper'];
+    const stamp = i => new Date(Date.now() - 600000 + i * 7000).toISOString().replace('T', ' ').slice(0, 19);
+    const sev = (dmg, newHp) => newHp <= 0 ? 'fatal' : (dmg >= HEAVY ? 'heavy' : 'normal');
+    const zoneDmg = z => z === 'head' ? rnd(40, 75) : (/^(spine|clav|neck|pelvis)/.test(z) ? rnd(15, 40) : rnd(8, 28));
+
+    function makeLogs() {
+        const logs = [];
+        let hp = 200, i = 0;
+        const attackers = [7, 23, 31];
+        while (hp > 0 && i < 12) {
+            const zone = pick(ZONES);
+            let dmg = Math.min(zoneDmg(zone), hp);
+            if (i >= 9) dmg = hp;                         // make sure the sequence ends fatal
+            const oldHp = hp; hp -= dmg;
+            logs.push({ time: stamp(i), attackerId: pick(attackers), victimId: TARGET, weapon: pick(WEAPONS), zone,
+                damage: dmg, armorLoss: rnd(0, 2) === 0 ? rnd(5, 25) : 0, oldHealth: oldHp, newHealth: hp,
+                severity: sev(dmg, hp), distance: rnd(2, 60) });
+            i++;
+            if (i === 3 && hp > 30) {                      // one environmental hit (no attacker)
+                const d = 12; logs.push({ time: stamp(i), attackerId: null, victimId: TARGET, weapon: 'Fall damage', zone: 'footR',
+                    damage: d, armorLoss: 0, oldHealth: hp, newHealth: hp - d, severity: 'normal' });
+                hp -= d; i++;
+            }
+        }
+        for (let k = 0; k < 8; k++) {
+            const zone = pick(ZONES), oldHp = rnd(80, 200);
+            let dmg = zoneDmg(zone);
+            if (k === 7) dmg = oldHp;
+            const newHp = Math.max(0, oldHp - dmg);
+            logs.push({ time: stamp(20 + k), attackerId: TARGET, victimId: pick([7, 23, 31, 44]), weapon: pick(WEAPONS), zone,
+                damage: dmg, armorLoss: 0, oldHealth: oldHp, newHealth: newHp, severity: sev(dmg, newHp), distance: rnd(2, 60) });
+        }
+        return logs;
+    }
+
+    let logs = makeLogs();
+    const langSel = document.getElementById('pv-lang');
+    const openPreview = () => window.postMessage({ action: 'open', logs, targetId: TARGET, locale: locale(langSel.value), heavyDamage: HEAVY }, '*');
+
+    langSel.addEventListener('change', openPreview);
+    document.getElementById('pv-new').addEventListener('click', () => { logs = makeLogs(); openPreview(); });
+    document.getElementById('pv-reopen').addEventListener('click', openPreview);
+    openPreview();
+})();
+
+</script>
+</body>
+</html>
