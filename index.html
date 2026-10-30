@@ -91,7 +91,26 @@ html, body { background:#191919; }
 .panel { max-height:calc(100vh - 80px); box-shadow:none; }
 #reopen { position:fixed; inset:0; display:none; align-items:center; justify-content:center; padding-bottom:56px; }
 #app.hidden ~ #reopen { display:flex; }
-#pv-bar { position:fixed; left:0; right:0; bottom:0; height:48px; display:flex; align-items:center; justify-content:center; gap:10px; z-index:20; background:#111111; border-top:1px solid var(--border); }
+#pv-bar {
+  position:fixed; left:50%; bottom:8px; transform:translateX(-50%);
+  width:max-content; max-width:calc(100% - 24px);
+  display:flex; flex-wrap:wrap; align-items:center; justify-content:center;
+  gap:10px 16px; padding:8px 16px;
+  background:#2a2a2b; border-radius:16px; z-index:20;
+}
+#pv-bar select, .pv-btn {
+  font:600 13px "Segoe UI", Arial, sans-serif;
+  color:#fff; background:#191919;
+  border:1px solid #3a3a3c; border-radius:10px;
+  padding:7px 12px; cursor:pointer; color-scheme:dark;
+  transition:border-color .15s, color .15s, background .15s;
+}
+#pv-bar select:hover, .pv-btn:hover { border-color:#2f6bff; color:#2f6bff; }
+#pv-bar select:focus-visible, .pv-btn:focus-visible { outline:2px solid #2f6bff; outline-offset:2px; }
+.pv-btn.primary { background:#2563eb; border-color:#2563eb; color:#fff; }
+.pv-btn.primary:hover { background:#1d4fd8; border-color:#1d4fd8; color:#fff; }
+.pv-note { font-size:13px; color:#fff; opacity:.7; }
+@media (max-width:640px) { .pv-note { display:none; } }
 
 </style>
 </head>
